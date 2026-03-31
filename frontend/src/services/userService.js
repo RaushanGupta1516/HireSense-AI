@@ -1,9 +1,11 @@
 import { apiCall } from "./apiBase";
 
+// All API calls related to user accounts, profiles, and actions.
 export const userService = {
   login,
   signup,
   logout,
+  refreshToken,
   getCurrentUser,
   updateProfilePicture,
   updateUserProfile,
@@ -11,65 +13,72 @@ export const userService = {
   removeSkill,
   updateResume,
   saveJob,
-  applyForJob,
   removeSavedJob,
+  applyForJob,
   getPublicProfile,
 };
 
-async function login(userData) {
+function login(userData) {
   return apiCall("post", "/users/login", userData);
 }
 
-async function signup(userData) {
+function signup(userData) {
   return apiCall("post", "/users/signup", userData);
 }
 
-async function updateProfilePicture(file) {
+function logout() {
+  return apiCall("post", "/users/logout");
+}
+
+function refreshToken() {
+  return apiCall("post", "/users/refresh-token");
+}
+
+function getCurrentUser() {
+  return apiCall("get", "/users/profile");
+}
+
+function updateUserProfile(data) {
+  return apiCall("patch", "/users/profile/update", data);
+}
+
+/**
+ * Uploads a profile picture file.
+ * @param {File} file - The image file from an input.
+ */
+function updateProfilePicture(file) {
   const formPayload = new FormData();
   formPayload.append("profilePicture", file);
   return apiCall("post", "/users/profile-picture", formPayload, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+    // The browser will set the correct boundary for multipart/form-data
+    // so we don't need to specify the header here.
   });
 }
 
-async function logout() {
-  return apiCall("get", "/users/logout");
-}
-
-async function getCurrentUser() {
-  return await apiCall("get", "/users/profile");
-}
-
-async function updateUserProfile(data) {
-  return apiCall("patch", "/users/profile/jobseeker", data);
-}
-
-async function addSkill(skill) {
+function addSkill(skill) {
   return apiCall("post", "/users/add-skill", { skill });
 }
 
-async function removeSkill(skill) {
-  return apiCall("delete", "/users/remove-skill", { skill });
+function removeSkill(skill) {
+  return apiCall("post", "/users/remove-skill", { skill });
 }
 
-async function updateResume(resume) {
+function updateResume(resume) {
   return apiCall("post", "/users/resume", { resume });
 }
 
-async function saveJob(id) {
-  return apiCall("post", `/save/${id}`);
+function saveJob(jobId) {
+  return apiCall("post", `/users/saved-jobs/${jobId}`);
 }
 
-async function applyForJob(id) {
-  return apiCall("post", `/apply/${id}`);
+function removeSavedJob(jobId) {
+  return apiCall("delete", `/users/saved-jobs/${jobId}`);
 }
 
-async function removeSavedJob(jobId) {
-  return apiCall("delete", `/remove-saved-job/${jobId}`);
+function applyForJob(jobId) {
+  return apiCall("post", `/apply/${jobId}`);
 }
 
-async function getPublicProfile(id) {
-  return await apiCall("get", `/users/public-profile/${id}`);
+function getPublicProfile(userId) {
+  return apiCall("get", `/users/public-profile/${userId}`);
 }

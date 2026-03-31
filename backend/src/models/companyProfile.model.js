@@ -2,33 +2,29 @@ import mongoose, { Schema } from "mongoose";
 import { socialProfilesSchema } from "./socialProfiles.schema.js";
 
 const companyProfileSchema = new Schema({
-  companyName: { type: String, required: true },
-  doneOnboarding: { type: Boolean, default: false },
+  companyName:        { type: String, default: "" },
+  doneOnboarding:     { type: Boolean, default: false },
   companyDescription: String,
-  contactNumber: String,
+  contactNumber:      String,
   address: {
-    city: String,
-    state: String,
+    city:    String,
+    state:   String,
     country: String,
   },
-  industry: String,
+  industry:    String,
   companySize: {
-    from: Number,
-    to: Number,
+    from: { type: Number, default: 0 },
+    to:   { type: Number, default: 0 },
   },
   companyLogo: {
-    type: String,
-    default:
-      "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg",
+    type:    String,
+    default: "https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg",
   },
-  companyWebsite: String,
-  jobListings: [{ type: mongoose.Schema.Types.ObjectId, ref: "Job" }],
-  companySocialProfiles: socialProfilesSchema,
-  employeeBenefits: [String],
-  aiUseLimit: { type: Number, default: 1 },
+  companyWebsite:        String,
+  jobListings:           { type: [{ type: Schema.Types.ObjectId, ref: "Job" }], default: [] },
+  companySocialProfiles: { type: socialProfilesSchema, default: () => ({}) },
+  employeeBenefits:      { type: [String], default: [] },
+  aiUseLimit:            { type: Number, default: 1 },
 });
 
-export const CompanyProfile = mongoose.model(
-  "CompanyProfile",
-  companyProfileSchema
-);
+export { companyProfileSchema as CompanyProfile };

@@ -2,374 +2,283 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import {
-	deleteFromCloudinary,
-	uploadOnCloudinary,
-} from "../utils/cloudinary.service.js";
-import { JobSeekerProfile } from "../models/jobSeekerProfile.model.js";
-import { PRODUCTION_URL } from "../constants.js";
-
-// Testing endpoints
-const ping = (req, res) => {
-	res.send("User API is working");
-};
-const authPing = (req, res) => {
-	res.send("User Auth is working");
-};
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.service.js";
+import jwt from "jsonwebtoken";
 
 const cookieOptions = {
-	httpOnly: true,
-	secure: process.env.NODE_ENV === "production",
-	sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-	maxAge: 1000 * 60 * 60 * 24 * 7,
-	domain:
-		process.env.NODE_ENV === "production"
-			? process.env.PRODUCTION_DOMAIN
-			: "localhost",
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
-const generateAccessAndRefereshTokens = async (userId) => {
-	try {
-		const user = await User.findById(userId);
-		const accessToken = user.generateAccessToken();
-		const refreshToken = user.generateRefreshToken();
+export const ping     = (req, res) => res.send("User API is working");
+export const authPing = (req, res) => res.send("User Auth is working");
 
-		user.refreshToken = refreshToken;
-		await user.save({ validateBeforeSave: false });
+const generateTokens = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, "User not found");
 
-		return { accessToken, refreshToken };
-	} catch (error) {
-		throw new ApiError(
-			500,
-			`Something went wrong while generating referesh and access token: ${error}`,
-		);
-	}
+  const accessToken  = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  return { accessToken, refreshToken };
 };
 
-const registerUser = asyncHandler(async (req, res) => {
-	const { email, password, role, userProfile } = req.body;
+export const registerUser = asyncHandler(async (req, res) => {
+  const { email, password, role, userProfile } = req.body;
 
-	if ([email, password].some((field) => field?.trim() === "")) {
-		throw new ApiError(400, "All fields are required");
-	}
+  if (!email || !password) throw new ApiError(400, "Email and password required");
+  if (!role) throw new ApiError(400, "Role is required");
 
-	const existingUser = await User.findOne({ email });
-	if (existingUser) {
-		throw new ApiError(409, "User already exists");
-	}
+  const exists = await User.findOne({ email: email.toLowerCase() });
+  if (exists) throw new ApiError(409, "Account already exists with this email");
 
-	const username = email.split("@")[0];
-	const user = await User.create({
-		email: email.toLowerCase(),
-		username: username.toLowerCase(),
-		password,
-		role,
-		userProfile,
-	});
+  const username = email.split("@")[0].toLowerCase();
 
-	const createdUser = await User.findById(user._id).select(
-		"-password -refreshtoken",
-	);
+  const user = await User.create({
+    email: email.toLowerCase(),
+    username,
+    password,
+    role,
+    userProfile: userProfile || {},
+  });
 
-	if (!createdUser) {
-		throw new ApiError(500, "Something went wrong while registering the user");
-	}
+  const created = await User.findById(user._id).select("-password -refreshToken");
+  if (!created) throw new ApiError(500, "Something went wrong during registration");
 
-	return res
-		.status(201)
-		.json(new ApiResponse(201, {}, "User registered successfully"));
+  const { accessToken, refreshToken } = await generateTokens(user._id);
+
+  return res
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .status(201)
+    .json(new ApiResponse(201, { user: created, accessToken, refreshToken }, "Registered successfully"));
 });
 
-const loginUser = asyncHandler(async (req, res) => {
-	const { email, password } = req.body;
+export const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) throw new ApiError(400, "Email and password required");
 
-	if (!email) {
-		throw new ApiError(400, "Email is required");
-	}
+  const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+  if (!user) throw new ApiError(404, "No account found with this email");
 
-	if (!password) {
-		throw new ApiError(400, "Password is required");
-	}
+  const isValid = await user.isPasswordCorrect(password);
+  if (!isValid) throw new ApiError(401, "Incorrect password");
 
-	const user = await User.findOne({ email: email.toLowerCase() });
+  const { accessToken, refreshToken } = await generateTokens(user._id);
+  const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
-	if (!user) {
-		throw new ApiError(404, "User not found");
-	}
-
-	const isPasswordValid = await user.isPasswordCorrect(password);
-
-	if (!isPasswordValid) {
-		throw new ApiError(401, "Invalid user credentials");
-	}
-
-	const { refreshToken, accessToken } = await generateAccessAndRefereshTokens(
-		user._id,
-	);
-
-	return res
-		.status(200)
-		.cookie("accessToken", accessToken, cookieOptions)
-		.cookie("refreshToken", refreshToken, cookieOptions)
-		.json(
-			new ApiResponse(
-				200,
-				{ accessToken, refreshToken },
-				"User login successful",
-			),
-		);
+  return res
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .status(200)
+    .json(new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken }, "Login successful"));
 });
 
-const logoutUser = asyncHandler(async (req, res) => {
-	await User.findByIdAndUpdate(
-		req.user._id,
-		{
-			$unset: {
-				refreshToken: 1,
-			},
-		},
-		{
-			new: true,
-		},
-	);
+export const refreshAccessToken = asyncHandler(async (req, res) => {
+  const token = req.cookies?.refreshToken || req.body?.refreshToken;
+  if (!token) throw new ApiError(401, "Refresh token missing");
 
-	return res
-		.status(200)
-		.clearCookie("accessToken", cookieOptions)
-		.clearCookie("refreshToken", cookieOptions)
-		.json(new ApiResponse(200, {}, "User logged out"));
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+  } catch {
+    throw new ApiError(401, "Invalid or expired refresh token, please log in again");
+  }
+
+  const user = await User.findById(decoded._id);
+  if (!user) throw new ApiError(401, "User not found");
+  if (user.refreshToken !== token) throw new ApiError(401, "Session expired, please log in again");
+
+  const { accessToken, refreshToken } = await generateTokens(user._id);
+
+  return res
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .status(200)
+    .json(new ApiResponse(200, { accessToken, refreshToken }, "Token refreshed"));
 });
 
-const getUserProfile = asyncHandler(async (req, res) => {
-	return res
-		.status(200)
-		.json(new ApiResponse(200, req.user, "User profile fetch successful"));
+export const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(req.user._id, { $unset: { refreshToken: 1 } });
+
+  return res
+    .clearCookie("accessToken", cookieOptions)
+    .clearCookie("refreshToken", cookieOptions)
+    .status(200)
+    .json(new ApiResponse(200, {}, "Logged out"));
 });
 
-const updateUserProfile = asyncHandler(async (req, res) => {
-	const updates = Object.keys(req.body);
-	const allowedUpdates = [
-		"contactNumber",
-		"address",
-		"dateOfBirth",
-		"gender",
-		"nationality",
-		"savedJobs",
-		"profilePicture",
-		"resume",
-		"certifications",
-		"languages",
-		"interests",
-		"projectExperience",
-		"name",
-		"location",
-		"primaryRole",
-		"yearsOfExperience",
-		"bio",
-		"skills",
-		"education",
-		"workExperience",
-		"applications",
-		"socialProfiles",
-		"publicProfile",
-		"jobPreferences",
-		"doneOnboarding",
-		"companyName",
-		"companyDescription",
-		"contactNumber",
-		"address",
-		"companySize",
-		"companyLogo",
-		"companySocialProfiles",
-	];
-	const nonValidOperations = [];
-	const isValidOperation = updates.every((update) => {
-		if (allowedUpdates.includes(update)) {
-			return true;
-		} else {
-			nonValidOperations.push(update);
-			return false;
-		}
-	});
-
-	if (!isValidOperation) {
-		return res
-			.status(400)
-			.send({ error: `Invalid updates! ${nonValidOperations.toString()}` });
-	}
-
-	const userProfileUpdates = {};
-	updates.forEach(
-		(update) =>
-			(userProfileUpdates[`userProfile.${update}`] = req.body[update]),
-	);
-
-	const user = await User.findByIdAndUpdate(req.user._id, userProfileUpdates, {
-		new: true,
-		runValidators: true,
-	}).select("-password");
-
-	if (!user) {
-		return res.status(404).send();
-	}
-
-	res.send(user);
+export const getUserProfile = asyncHandler(async (req, res) => {
+  return res.status(200).json(new ApiResponse(200, req.user, "Profile fetched"));
 });
 
-const updateProfilePicture = asyncHandler(async (req, res) => {
-	const profilePictureLocalPath = req.file?.path;
+const ALLOWED_PROFILE_FIELDS = [
+  "contactNumber", "address", "dateOfBirth", "gender", "nationality",
+  "savedJobs", "profilePicture", "resume", "certifications", "languages",
+  "interests", "projectExperience", "name", "location", "primaryRole",
+  "yearsOfExperience", "bio", "skills", "education", "workExperience",
+  "applications", "socialProfiles", "publicProfile", "jobPreferences",
+  "doneOnboarding", "companyName", "companyDescription", "companySize",
+  "companyLogo", "companySocialProfiles",
+];
 
-	if (!profilePictureLocalPath) {
-		throw new ApiError(400, "Profile Picture file is missing");
-	}
+export const updateUserProfile = asyncHandler(async (req, res) => {
+  const updates = Object.keys(req.body);
 
-	let user = await User.findById(req.user._id);
+  const invalid = updates.filter((f) => !ALLOWED_PROFILE_FIELDS.includes(f));
+  if (invalid.length) throw new ApiError(400, `Invalid fields: ${invalid.join(", ")}`);
 
-	let oldProfilePictureUrl = user?.userProfile?.profilePicture;
+  const payload = {};
+  updates.forEach((f) => (payload[`userProfile.${f}`] = req.body[f]));
 
-	const profilePicture = await uploadOnCloudinary(profilePictureLocalPath);
-	if (!profilePicture?.url) {
-		throw new ApiError(400, "Error while uploading profile picture");
-	}
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    { $set: payload },
+    { new: true, runValidators: true }
+  ).select("-password -refreshToken");
 
-	if (user.role === "jobSeeker") {
-		user = await User.findByIdAndUpdate(
-			req.user._id,
-			{
-				$set: {
-					"userProfile.profilePicture": profilePicture.url,
-				},
-			},
-			{ new: true },
-		).select("-password");
-	} else if (user.role === "employer") {
-		user = await User.findByIdAndUpdate(
-			req.user._id,
-			{
-				$set: {
-					"userProfile.companyLogo": profilePicture.url,
-				},
-			},
-			{ new: true },
-		).select("-password");
-	}
+  if (!user) throw new ApiError(404, "User not found");
 
-	if (
-		oldProfilePictureUrl &&
-		oldProfilePictureUrl !=
-			"https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg"
-	) {
-		try {
-			const splitUrl = oldProfilePictureUrl.split("/");
-			const filenameWithExtension = splitUrl[splitUrl.length - 1];
-			const imageId = filenameWithExtension.split(".")[0];
-			const res = await deleteFromCloudinary(imageId);
-		} catch (error) {
-			throw new ApiError(
-				304,
-				`Error deleting profile picture: ${error.message}`,
-			);
-		}
-	}
-
-	return res
-		.status(200)
-		.json(
-			new ApiResponse(200, user, "User profile picture updated successfully"),
-		);
+  return res.status(200).json(new ApiResponse(200, user, "Profile updated"));
 });
 
-const addSkill = asyncHandler(async (req, res) => {
-	const { skill } = req.body;
-	const { role } = req.user;
-	if (role !== "jobSeeker") {
-		throw new ApiError(401, "You are not authorized to perform this action");
-	}
+export const updateProfilePicture = asyncHandler(async (req, res) => {
+  if (!req.file?.path) throw new ApiError(400, "No file uploaded");
 
-	if (!skill) {
-		throw new ApiError(400, "Skill is required");
-	}
+  const user = await User.findById(req.user._id);
+  if (!user) throw new ApiError(404, "User not found");
 
-	const user = await User.findById(req.user._id);
-	user.userProfile.skills.push(skill);
-	user.markModified("userProfile.skills");
-	await user.save();
+  const oldUrl = user.userProfile?.profilePicture || user.userProfile?.companyLogo;
 
-	const updatedUser = await User.findById(req.user._id);
-	console.log(updatedUser.userProfile.skills);
-	return res
-		.status(200)
-		.json(
-			new ApiResponse(
-				200,
-				updatedUser.userProfile.skills,
-				"Skills updated successfully",
-			),
-		);
+  const uploaded = await uploadOnCloudinary(req.file.path);
+  if (!uploaded?.url) throw new ApiError(500, "Cloudinary upload failed");
+
+  const field = user.role === "jobSeeker" ? "profilePicture" : "companyLogo";
+  user.userProfile[field] = uploaded.url;
+  user.markModified("userProfile");
+  await user.save();
+
+  // cleanup old pic, best effort
+  if (oldUrl && !oldUrl.includes("Default_pfp.svg")) {
+    try {
+      const publicId = oldUrl.split("/").pop().split(".")[0];
+      await deleteFromCloudinary(publicId);
+    } catch (err) {
+      console.error("Cloudinary delete failed:", err.message);
+    }
+  }
+
+  const updated = await User.findById(req.user._id).select("-password -refreshToken");
+  return res.status(200).json(new ApiResponse(200, updated, "Profile picture updated"));
 });
 
-const removeSkill = asyncHandler(async (req, res) => {
-	const { skill } = req.body;
-	const { role } = req.user;
-	if (role !== "jobSeeker") {
-		throw new ApiError(401, "You are not authorized to perform this action");
-	}
-	if (!skill) {
-		throw new ApiError(400, "Skill is required");
-	}
+export const addSkill = asyncHandler(async (req, res) => {
+  if (req.user.role !== "jobSeeker") throw new ApiError(403, "Only job seekers can add skills");
 
-	const user = await User.findById(req.user._id);
-	user.userProfile.skills = user.userProfile.skills.filter((s) => s !== skill);
-	user.markModified("userProfile.skills");
-	await user.save();
-	return res
-		.status(200)
-		.json(new ApiResponse(200, {}, "Skills removed successfully"));
+  const { skill } = req.body;
+  if (!skill) throw new ApiError(400, "Skill is required");
+
+  const user = await User.findById(req.user._id);
+  if (user.userProfile.skills.includes(skill)) throw new ApiError(409, "Skill already added");
+
+  user.userProfile.skills.push(skill);
+  user.markModified("userProfile.skills");
+  await user.save();
+
+  return res.status(200).json(new ApiResponse(200, user.userProfile.skills, "Skill added"));
 });
 
-const updateResume = asyncHandler(async (req, res) => {
-	const { resume } = req.body;
-	const { role } = req.user;
-	if (role !== "jobSeeker") {
-		throw new ApiError(401, "You are not authorized to perform this action");
-	}
-	if (!resume) {
-		throw new ApiError(400, "Resume is required");
-	}
+export const removeSkill = asyncHandler(async (req, res) => {
+  if (req.user.role !== "jobSeeker") throw new ApiError(403, "Only job seekers can remove skills");
 
-	const user = await User.findById(req.user._id);
-	user.userProfile.resume = resume;
-	user.markModified("userProfile.resume");
-	await user.save();
-	return res
-		.status(200)
-		.json(new ApiResponse(200, {}, "Resume updated successfully"));
+  const { skill } = req.body;
+  if (!skill) throw new ApiError(400, "Skill is required");
+
+  const user = await User.findById(req.user._id);
+  user.userProfile.skills = user.userProfile.skills.filter((s) => s !== skill);
+  user.markModified("userProfile.skills");
+  await user.save();
+
+  return res.status(200).json(new ApiResponse(200, user.userProfile.skills, "Skill removed"));
 });
 
-const userPublicProfile = asyncHandler(async (req, res) => {
-	const userId = req.params.id;
-	const user = await User.findById(userId).select(
-		"email _id userProfile.profilePicture userProfile.address userProfile.bio userProfile.location userProfile.yearsOfExperience userProfile.socialProfiles userProfile.workExperience userProfile.education userProfile.skills userProfile.name userProfile.resume",
-	);
-	if (!user) {
-		throw new ApiError(404, "User not found");
-	}
-	return res
-		.status(200)
-		.json(new ApiResponse(200, user, "User profile fetch successful"));
+export const updateResume = asyncHandler(async (req, res) => {
+  if (req.user.role !== "jobSeeker") throw new ApiError(403, "Only job seekers can update resume");
+
+  const { resume } = req.body;
+  if (!resume) throw new ApiError(400, "Resume link is required");
+
+  const user = await User.findById(req.user._id);
+  user.userProfile.resume = resume;
+  user.markModified("userProfile.resume");
+  await user.save();
+
+  return res.status(200).json(new ApiResponse(200, { resume }, "Resume updated"));
 });
 
-export {
-	ping,
-	authPing,
-	registerUser,
-	loginUser,
-	logoutUser,
-	getUserProfile,
-	updateUserProfile,
-	updateProfilePicture,
-	addSkill,
-	removeSkill,
-	updateResume,
-	userPublicProfile,
-};
+export const savedJob = asyncHandler(async (req, res) => {
+  const { jobId } = req.params;
+  if (!jobId) throw new ApiError(400, "Job ID required");
+
+  const user = await User.findById(req.user._id);
+  const isSaved = user.userProfile.savedJobs?.includes(jobId);
+
+  if (isSaved) {
+    user.userProfile.savedJobs = user.userProfile.savedJobs.filter(
+      (id) => id.toString() !== jobId
+    );
+    user.markModified("userProfile.savedJobs");
+    await user.save();
+    return res.status(200).json(new ApiResponse(200, {}, "Job removed from saved"));
+  }
+
+  user.userProfile.savedJobs = [...(user.userProfile.savedJobs || []), jobId];
+  user.markModified("userProfile.savedJobs");
+  await user.save();
+
+  return res.status(200).json(new ApiResponse(200, {}, "Job saved"));
+});
+
+export const removeSavedJob = asyncHandler(async (req, res) => {
+  const { jobId } = req.params;
+  if (!jobId) throw new ApiError(400, "Job ID required");
+
+  const user = await User.findById(req.user._id);
+  user.userProfile.savedJobs = (user.userProfile.savedJobs || []).filter(
+    (id) => id.toString() !== jobId
+  );
+  user.markModified("userProfile.savedJobs");
+  await user.save();
+
+  return res.status(200).json(new ApiResponse(200, {}, "Job removed from saved"));
+});
+
+export const userPublicProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id).select(
+    "email _id userProfile.profilePicture userProfile.address userProfile.bio userProfile.location userProfile.yearsOfExperience userProfile.socialProfiles userProfile.workExperience userProfile.education userProfile.skills userProfile.name userProfile.resume userProfile.primaryRole"
+  );
+  if (!user) throw new ApiError(404, "User not found");
+
+  return res.status(200).json(new ApiResponse(200, user, "Public profile fetched"));
+});
+
+export const getNotifications = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("notifications");
+  const sorted = (user.notifications || []).sort((a, b) => b.createdAt - a.createdAt);
+
+  return res.status(200).json(new ApiResponse(200, sorted, "Notifications fetched"));
+});
+
+export const markNotificationsRead = asyncHandler(async (req, res) => {
+  await User.updateOne(
+    { _id: req.user._id },
+    { $set: { "notifications.$[].read": true } }
+  );
+
+  return res.status(200).json(new ApiResponse(200, {}, "Marked as read"));
+});

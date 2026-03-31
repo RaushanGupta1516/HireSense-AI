@@ -1,38 +1,32 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
+  api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadOnCloudinary = async (localFilePath) => {
+export const uploadOnCloudinary = async (filePath) => {
+  if (!filePath) return null;
+
   try {
-    if (!localFilePath) {
-      return null;
-    }
-    const response = await cloudinary.uploader.upload(localFilePath, {
-      resource_type: "auto",
-    });
-    fs.unlinkSync(localFilePath);
-    return response;
-  } catch (error) {
-    fs.unlinkSync(localFilePath);
+    const res = await cloudinary.uploader.upload(filePath, { resource_type: "auto" });
+    fs.unlinkSync(filePath); // cleanup temp file
+    return res;
+  } catch (err) {
+    fs.unlinkSync(filePath); // cleanup even if upload fails
     return null;
   }
 };
 
-const deleteFromCloudinary = async (publicId) => {
+export const deleteFromCloudinary = async (publicId) => {
+  if (!publicId) return null;
+
   try {
-    if (!publicId) {
-      return null;
-    }
-    const response = await cloudinary.uploader.destroy(publicId);
-    return response;
-  } catch (error) {
-    console.error(error);
+    return await cloudinary.uploader.destroy(publicId);
+  } catch (err) {
+    console.error("Cloudinary delete error:", err.message);
     return null;
   }
 };
-
-export { uploadOnCloudinary, deleteFromCloudinary };

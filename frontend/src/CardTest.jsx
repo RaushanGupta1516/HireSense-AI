@@ -1,9 +1,9 @@
-import React from "react";
+
 
 const JobCard = (job) => {
   console.log(job);
   return (
-    <div className="p-6 max-w-sm mx-auto bg-white rounded-xl shadow-md flex items-center space-x-4 ">
+    <div className="p-6 max-w-sm mx-auto bg-[#131720] rounded-xl shadow-md flex items-center space-x-4 ">
       <div className="flex-shrink-0">
         <img className="h-12 w-12" src={job.companyLogo} alt={job.company} />
       </div>

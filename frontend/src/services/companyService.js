@@ -1,60 +1,52 @@
-import apiClient from "./apiBase";
+import { apiCall } from "./apiBase";
 
+// All API calls related to the 'company' or 'employer' role.
 export const companyService = {
   postNewJob,
-  getAllJobListings,
-  getNonActiveJobListings,
-  getCompanyJobListings,
-  generateJobDescription,
-  getActiveJobListings,
-  getNonActiveJobListings,
-  getAllApplications,
-  getShortListedCandidates,
+  getJobListings, // Merged getAllJobListings and getCompanyJobListings
+  generateJD: (data) => apiCall("post", "/ai/generate-jd", data), // Re-using AI service for convenience
+  getActiveListings,
+  getInactiveListings,
+  getApplications,
+  getShortlisted,
   shortlistCandidate,
   removeApplication,
-  removeFromShortlist,
+  removeShortlisted,
 };
 
-async function getAllJobListings() {
-  return apiCall("get", "/company/listings");
-}
-
-async function getAllApplications() {
-  return apiCall("get", "/company/applications");
-}
-
-async function postNewJob(data) {
+function postNewJob(data) {
   return apiCall("post", "/jobs", data);
 }
 
-async function generateJobDescription(data) {
-  return apiCall("post", "/generate-job-description", data);
-}
-
-async function getCompanyJobListings() {
+// Renamed and combined two identical functions.
+function getJobListings() {
   return apiCall("get", "/company/listings");
 }
 
-async function getActiveJobListings() {
+function getActiveListings() {
   return apiCall("get", "/company/active-listings");
 }
 
-async function getNonActiveJobListings() {
+function getInactiveListings() {
   return apiCall("get", "/company/non-active-listings");
 }
 
-async function getShortListedCandidates() {
+function getApplications() {
+  return apiCall("get", "/company/applications");
+}
+
+function getShortlisted() {
   return apiCall("get", "/company/shortlisted-candidates");
 }
 
-async function shortlistCandidate(data) {
+function shortlistCandidate(data) {
   return apiCall("post", "/company/shortlist-candidate", data);
 }
 
-async function removeApplication(data) {
+function removeApplication(data) {
   return apiCall("post", "/company/remove-from-applications", data);
 }
 
-async function removeFromShortlist(data) {
+function removeShortlisted(data) {
   return apiCall("post", "/company/remove-from-shortlisted", data);
 }

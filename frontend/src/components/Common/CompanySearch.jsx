@@ -47,7 +47,7 @@ const CompanySearch = ({ handleDropdown, width, companyName, label }) => {
           ? companyApiData.map((item, index) => (
               <li
                 key={index}
-                className="flex items-center my-1 p-2 bg-white rounded-md shadow-sm border hover:cursor-pointer"
+                className="flex items-center my-1 p-2 bg-[#131720] rounded-md shadow-sm border hover:cursor-pointer"
                 onClick={() => handleDropdown(item)}
               >
                 <img
@@ -65,7 +65,7 @@ const CompanySearch = ({ handleDropdown, width, companyName, label }) => {
             ))
           : searchTerm && (
               <li
-                className="flex items-center my-2 p-2 bg-white rounded-md shadow-sm border border-black hover:cursor-pointer"
+                className="flex items-center my-2 p-2 bg-[#131720] rounded-md shadow-sm border border-black hover:cursor-pointer"
                 onClick={() =>
                   handleDropdown({
                     name: searchTerm,

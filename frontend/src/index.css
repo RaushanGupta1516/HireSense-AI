@@ -1,8 +1,85 @@
-@import url("https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;0,1000;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900;1,1000&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-.scrollable-list {
-  @apply max-h-60 overflow-y-auto;
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #0D0F14; /* dark theme bg */
+    color: #F9FAFB;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: rgba(99, 102, 241, 0.25);
+    color: #fff;
+  }
 }
+
+/* Custom Animations */
+@layer utilities {
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+  @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-14px); } }
+
+  .animate-fadeIn  { animation: fadeIn 0.5s ease forwards; }
+  .animate-fadeInUp { animation: fadeInUp 0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
+  .animate-scaleIn  { animation: scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  .animate-float    { animation: float 6s ease-in-out infinite; }
+  
+  /* Note: Removed custom .delay-* classes. Use Tailwind's built-in `delay-100`, `delay-200`, etc. instead. */
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+/* --- One-off Component Styles --- */
+/* These should probably be moved to their own component files eventually */
+
+/* For AI chat responses */
+.typing-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #6366F1;
+  animation: typingDot 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingDot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 
+  30% { transform: translateY(-8px); opacity: 1; } 
+}
+
+
+/* For HTML job descriptions from the AI */
+.jd-prose h2 { @apply text-gray-50 text-lg font-semibold my-4; }
+.jd-prose p  { @apply text-gray-400 my-2 leading-relaxed; }
+.jd-prose ul { @apply list-disc pl-6 my-2; }
+.jd-prose li { @apply text-gray-400 my-1; }
+.jd-prose li::marker { color: #6366F1; }
+.jd-prose strong { @apply text-gray-200 font-semibold; }

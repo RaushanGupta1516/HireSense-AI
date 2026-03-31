@@ -1,56 +1,44 @@
 import React from "react";
 
 function Dialogbox({ isOpen, setIsOpen, title, message, buttonText, onClose }) {
+  if (!isOpen) return null;
+
   const handleClose = () => {
     setIsOpen(false);
-    if (onClose) {
-      onClose();
-    }
+    if (onClose) onClose();
   };
 
   return (
-    <div>
-      {isOpen && (
-        <div
-          className="fixed z-10 inset-0 overflow-y-auto"
-          aria-labelledby="modal-title"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              aria-hidden="true"
-            ></div>
-            <span
-              className="hidden sm:inline-block sm:align-middle sm:h-screen"
-              aria-hidden="true"
-            ></span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <h2
-                  className="text-lg leading-6 font-medium text-gray-900 "
-                  id="modal-title"
-                >
-                  {title}
-                </h2>
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500">{message}</p>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="bg-black w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2  text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={handleClose}
-                >
-                  {buttonText}
-                </button>
-              </div>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={handleClose}
+      />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-md bg-[#131720] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden animate-fadeIn">
+        {/* Top accent */}
+        <div className="h-0.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600" />
+
+        <div className="p-6 space-y-4">
+          {/* Title */}
+          <h2 className="text-base font-bold text-white">{title}</h2>
+
+          {/* Message */}
+          <p className="text-sm text-gray-400 leading-relaxed">{message}</p>
+
+          {/* Button */}
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={handleClose}
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-indigo-900/30"
+            >
+              {buttonText || "OK"}
+            </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,122 +1,114 @@
-import React, { useState, useEffect } from "react";
-import InputField from "./FormComponents/InputField";
+import React, { useState, useEffect, useRef } from "react";
 import { externalApiServices } from "../../services/externalApiServices";
 import { userService } from "../../services/userService";
 
 function SkillsSearch({ selectedSkills, setSelectedSkills, profile }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [skillsApiData, setSkillsApiData] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [results, setResults] = useState([]);
+  const wrapperRef = useRef(null);
 
+  // Close on outside click
   useEffect(() => {
-    if (isSearching) {
-      setIsLoading(true);
-      const timeoutId = setTimeout(async () => {
-        if (searchTerm) {
-          const data = await externalApiServices.searchSkills(searchTerm);
-          setSkillsApiData(
-            data.filter((skill) => !selectedSkills.has(skill.name))
-          );
-        } else {
-          setSkillsApiData([]);
-        }
-        setIsSearching(false);
-        setIsLoading(false);
-      }, 200);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [searchTerm, isSearching, selectedSkills]);
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setSearchTerm("");
+        setResults([]);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    setIsSearching(true);
+  // Search on every keystroke — local DB so no debounce needed
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setSearchTerm(val);
+    if (!val.trim()) { setResults([]); return; }
+    const found = externalApiServices.searchSkills(val);
+    // filter already selected
+    Promise.resolve(found).then((data) => {
+      setResults((data || []).filter((s) => !selectedSkills.has(s.name)));
+    });
   };
-  const handleSkillSelect = (skill) => {
+
+  const addSkill = async (skillName) => {
     if (profile) {
-      makeAddSkillRequest(skill);
+      try { await userService.addSkill(skillName); } catch {}
     }
-    if (selectedSkills.has(skill)) {
-      selectedSkills.delete(skill);
-    } else {
-      selectedSkills.set(skill, true);
-    }
-    setSelectedSkills(new Map(selectedSkills));
+    const updated = new Map(selectedSkills);
+    updated.set(skillName, true);
+    setSelectedSkills(updated);
     setSearchTerm("");
-    setIsSearching(false);
-    setSkillsApiData([]);
+    setResults([]);
   };
-  const handleRemoveSkill = (skill) => {
+
+  const removeSkill = async (skillName) => {
     if (profile) {
-      makeRemoveSkillRequest(skill);
+      try { await userService.removeSkill(skillName); } catch {}
     }
-    selectedSkills.delete(skill);
-    setSelectedSkills(new Map(selectedSkills));
+    const updated = new Map(selectedSkills);
+    updated.delete(skillName);
+    setSelectedSkills(updated);
   };
 
-  const makeAddSkillRequest = async (skill) => {
-    try {
-      const res = await userService.addSkill(skill);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const makeRemoveSkillRequest = async (skill) => {
-    try {
-      const res = await userService.removeSkill(skill);
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  const showDropdown = searchTerm.trim().length > 0;
 
   return (
-    <div>
-      <div className="flex flex-wrap gap-3 my-3">
-        {Array.from(selectedSkills.keys()).map((skill, index) => (
-          <div
-            key={index}
-            className="bg-gray-200 broder py-1.5 px-3 rounded flex justify-between items-center gap-2.5"
-          >
-            <span>{skill}</span>
-            <i
-              className="fa-solid fa-x text-xs hover:cursor-pointer text-gray-500"
-              onClick={() => handleRemoveSkill(skill)}
-            ></i>
-          </div>
-        ))}
-      </div>
+    <div ref={wrapperRef} className="space-y-3">
 
-      <div>
-        <InputField
-          id={"skills"}
-          placeholder={"e.g. Python, React, Data Analysis"}
-          onChange={handleSearch}
+      {/* Selected pills */}
+      {selectedSkills.size > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {Array.from(selectedSkills.keys()).map((skill, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-medium rounded-lg">
+              {skill}
+              <button type="button" onClick={() => removeSkill(skill)} className="hover:text-red-400 transition-colors">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Input + dropdown wrapper */}
+      <div className="relative">
+        <input
+          type="text"
           value={searchTerm}
+          onChange={handleChange}
+          placeholder="e.g. Python, React, Data Analysis"
+          autoComplete="off"
+          className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-gray-200 placeholder-gray-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
         />
-        {isLoading ? (
-          <div className="px-2 font-medium ">Loading...</div>
-        ) : (
-          <ul className={`${searchTerm ? "border" : ""} my-1`}>
-            {searchTerm && skillsApiData.length > 0
-              ? skillsApiData.map((skill) => (
+
+        {/* Dropdown */}
+        {showDropdown && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-[#1C2030] border border-white/10 rounded-xl shadow-2xl shadow-black/60 overflow-hidden" style={{ zIndex: 99999 }}>
+            {results.length > 0 ? (
+              <ul>
+                {results.map((skill, i) => (
                   <li
-                    key={skill.id}
-                    className="text-gray-800 border-b py-1.5 px-4 hover:cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSkillSelect(skill.name)}
+                    key={i}
+                    onMouseDown={(e) => { e.preventDefault(); addSkill(skill.name); }}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-indigo-500/10 hover:text-white cursor-pointer border-b border-white/5 last:border-0 transition-colors"
                   >
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
                     {skill.name}
                   </li>
-                ))
-              : searchTerm && (
-                  <li
-                    className="text-gray-800 border-b py-1.5 px-4 hover:cursor-pointer hover:bg-gray-100 font-medium"
-                    onClick={() => handleSkillSelect(searchTerm)}
-                  >
-                    Add "{searchTerm}" as a new skill
-                  </li>
-                )}
-          </ul>
+                ))}
+              </ul>
+            ) : (
+              <div
+                onMouseDown={(e) => { e.preventDefault(); addSkill(searchTerm.trim()); }}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-400 hover:bg-indigo-500/10 hover:text-white cursor-pointer transition-colors"
+              >
+                <span className="text-indigo-400 text-base">+</span>
+                Add <span className="font-semibold text-white mx-1">"{searchTerm}"</span> as a skill
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
