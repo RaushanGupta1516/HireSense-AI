@@ -8,7 +8,7 @@
 ![Stack](https://img.shields.io/badge/stack-MERN-orange)
 ![AI](https://img.shields.io/badge/AI-Groq%20Llama%203.3%2070B-purple)
 
-[Live Demo](https://hiresense-ai.vercel.app) · [Report a Bug](https://github.com/RaushanGupta1516/HireSense-AI/issues) · [Request a Feature](https://github.com/RaushanGupta1516/HireSense-AI/issues)
+[Live Demo](https://hiresense-ai-two.vercel.app) · [Report a Bug](https://github.com/RaushanGupta1516/HireSense-AI/issues) · [Request a Feature](https://github.com/RaushanGupta1516/HireSense-AI/issues)
 
 ---
 
@@ -326,7 +326,7 @@ HireSense-AI/
 
 ```
 Development:  http://localhost:8002/api/v1
-Production:   https://<your-backend>.onrender.com/api/v1
+Production:   https://hiresense-ai-backend-ltt7.onrender.com/api/v1
 ```
 
 ### Authentication
@@ -479,9 +479,6 @@ The refresh token flow handles expiry automatically — users never need to re-l
 ---
 
 ## Screenshots
-
-> Add your screenshots to a `/_screenshots` folder in the root of the repo
-> and update the paths below.
 
 ### Landing Page
 ![Landing Page](./_screenshots/landing.png)
@@ -753,7 +750,7 @@ Current version: **1.0.0**
 - GitHub → [@RaushanGupta1516](https://github.com/RaushanGupta1516)
 - Repo → [HireSense-AI](https://github.com/RaushanGupta1516/HireSense-AI)
 - Issues → [Open an issue](https://github.com/RaushanGupta1516/HireSense-AI/issues)
-- Live → [hiresense-ai.vercel.app](https://hiresense-ai.vercel.app)
+- Live → [hiresense-ai.vercel.app](https://hiresense-ai-two.vercel.app)
 
 Found a bug? Open an issue.
 Have a question? Start a discussion.
