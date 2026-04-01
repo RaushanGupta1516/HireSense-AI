@@ -1,6 +1,6 @@
 import { apiCall } from "./apiBase";
 
-// All API calls related to user accounts, profiles, and actions.
+// All API calls related to user auth, profile, and actions.
 export const userService = {
   login,
   signup,
@@ -43,15 +43,14 @@ function updateUserProfile(data) {
 }
 
 /**
- * Uploads a profile picture file.
+ * Uploads a profile picture.
  * @param {File} file - The image file from an input.
  */
 function updateProfilePicture(file) {
   const formPayload = new FormData();
   formPayload.append("profilePicture", file);
   return apiCall("post", "/users/profile-picture", formPayload, {
-    // The browser will set the correct boundary for multipart/form-data
-    // so we don't need to specify the header here.
+    headers: { "Content-Type": "multipart/form-data" },
   });
 }
 
@@ -67,18 +66,18 @@ function updateResume(resume) {
   return apiCall("post", "/users/resume", { resume });
 }
 
-function saveJob(jobId) {
-  return apiCall("post", `/users/saved-jobs/${jobId}`);
+function saveJob(id) {
+  return apiCall("post", `/users/saved-jobs/${id}`);
 }
 
 function removeSavedJob(jobId) {
   return apiCall("delete", `/users/saved-jobs/${jobId}`);
 }
 
-function applyForJob(jobId) {
-  return apiCall("post", `/apply/${jobId}`);
+function applyForJob(id) {
+  return apiCall("post", `/apply/${id}`);
 }
 
-function getPublicProfile(userId) {
-  return apiCall("get", `/users/public-profile/${userId}`);
+function getPublicProfile(id) {
+  return apiCall("get", `/users/public-profile/${id}`);
 }

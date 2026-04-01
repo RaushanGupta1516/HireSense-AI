@@ -1,5 +1,6 @@
 import { apiCall } from "./apiBase";
 
+// All API calls for the employer/recruiter dashboard.
 export const companyService = {
   postNewJob,
   getAllJobListings,
@@ -26,6 +27,7 @@ function getAllJobListings() {
   return apiCall("get", "/company/listings");
 }
 
+// same endpoint as getAllJobListings, kept for backward compat
 function getCompanyJobListings() {
   return apiCall("get", "/company/listings");
 }
